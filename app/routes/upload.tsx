@@ -5,7 +5,7 @@ import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {convertPdfToImage} from "~/lib/pdf2img";
 import {generateUUID} from "~/lib/utils";
-import {prepareInstructions} from "../../constants";
+import {prepareInstructions} from "../constants";
 
 const Upload = () => {
     const { auth, isLoading, fs, ai, kv } = usePuterStore();
@@ -50,7 +50,7 @@ const Upload = () => {
             uploadedFile.path,
             prepareInstructions({ jobTitle, jobDescription })
         )
-        if (!feedback) return setStatusText('Error: Failed to analyze resume');
+        if (!feedback) return setStatusText('Error: Failed to examine resume');
 
         const feedbackText = typeof feedback.message.content === 'string'
             ? feedback.message.content
@@ -114,7 +114,7 @@ const Upload = () => {
                             </div>
 
                             <button className="primary-button" type="submit">
-                                Analyze Resume
+                                Examine Resume
                             </button>
                         </form>
                     )}
