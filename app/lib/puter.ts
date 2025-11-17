@@ -114,6 +114,8 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                 getUser: get().auth.getUser,
             },
         });
+        // On error we consider the session invalid; stop idle tracking
+        try { (stopIdleTracking as any)(); } catch {}
     };
 
     const checkAuthStatus = async (): Promise<boolean> => {
@@ -141,6 +143,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                     },
                     isLoading: false,
                 });
+                try { (startIdleTracking as any)(); } catch {}
                 return true;
             } else {
                 set({
@@ -206,9 +209,62 @@ export const usePuterStore = create<PuterStore>((set, get) => {
                 },
                 isLoading: false,
             });
+            try { (stopIdleTracking as any)(); } catch {}
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Sign out failed";
             setError(msg);
+        }
+    };
+
+    // Idle auto-logout (20 minutes)
+    const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
+    let idleTimer: number | null = null;
+
+    const resetIdleTimer = () => {
+        if (typeof window === "undefined") return;
+        if (idleTimer) {
+            window.clearTimeout(idleTimer);
+            idleTimer = null;
+        }
+        idleTimer = window.setTimeout(() => {
+            // Auto sign-out only if currently authenticated
+            const state = get();
+            if (state.auth.isAuthenticated) {
+                // Use store's signOut to ensure state is updated consistently
+                state.auth.signOut();
+            }
+        }, IDLE_TIMEOUT_MS);
+    };
+
+    const activityEvents = [
+        "mousemove",
+        "keydown",
+        "click",
+        "touchstart",
+        "scroll",
+        "visibilitychange",
+    ] as const;
+
+    const onActivity = () => {
+        // Only track when authenticated
+        const state = get();
+        if (state.auth.isAuthenticated) {
+            resetIdleTimer();
+        }
+    };
+
+    const startIdleTracking = () => {
+        if (typeof window === "undefined") return;
+        activityEvents.forEach((ev) => window.addEventListener(ev, onActivity, { passive: true } as any));
+        resetIdleTimer();
+    };
+
+    const stopIdleTracking = () => {
+        if (typeof window === "undefined") return;
+        activityEvents.forEach((ev) => window.removeEventListener(ev, onActivity as any));
+        if (idleTimer) {
+            window.clearTimeout(idleTimer);
+            idleTimer = null;
         }
     };
 
@@ -327,6 +383,8 @@ export const usePuterStore = create<PuterStore>((set, get) => {
         >;
     };
 
+    const MODEL = import.meta.env.VITE_PUTER_AI_MODEL as string | undefined;
+
     const feedback = async (path: string, message: string) => {
         const puter = getPuter();
         if (!puter) {
@@ -334,24 +392,40 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             return;
         }
 
-        return puter.ai.chat(
-            [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "file",
-                            puter_path: path,
-                        },
-                        {
-                            type: "text",
-                            text: message,
-                        },
-                    ],
-                },
-            ],
-            { model: "claude-sonnet-4" }
-        ) as Promise<AIResponse | undefined>;
+        const payload: ChatMessage[] = [
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "file",
+                        puter_path: path,
+                    },
+                    {
+                        type: "text",
+                        text: message,
+                    },
+                ],
+            },
+        ];
+
+        try {
+            if (MODEL) {
+                return (await puter.ai.chat(payload, { model: MODEL })) as Promise<
+                    AIResponse | undefined
+                >;
+            }
+            // No model specified in env: let Puter choose a default model
+            return (await puter.ai.chat(payload)) as Promise<AIResponse | undefined>;
+        } catch (err: any) {
+            // If permission denied for chosen model, retry without specifying a model
+            const code = String(err?.code || "");
+            const msg = String(err?.message || err?.error?.message || "");
+            const denied = code === "error_400_from_delegate" || /Permission denied/i.test(msg);
+            if (denied && MODEL) {
+                return (await puter.ai.chat(payload)) as Promise<AIResponse | undefined>;
+            }
+            throw err;
+        }
     };
 
     const img2txt = async (image: string | File | Blob, testMode?: boolean) => {

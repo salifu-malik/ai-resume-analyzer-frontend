@@ -18,25 +18,29 @@ const textcolor = score >70? 'text-green-600'
         </div>
     )
 }
-const Summary =({feedback}: {feedback:Feedback}   ) =>{
-    return(
+const Summary = ({ feedback }: { feedback: Feedback }) => {
+    const overall = feedback?.overallScore ?? 0;
+    const tone = feedback?.toneAndStyle?.score ?? 0;
+    const content = feedback?.content?.score ?? 0;
+    const structure = feedback?.structure?.score ?? 0;
+    const skills = feedback?.skills?.score ?? 0;
+
+    return (
         <div className="bg-white rounded-2xl shadow-md w-full ">
             <div className="flex flex-col items-center p-4 gap-8">
-            <ScoreGauge score = {feedback.overallScore} />
-            <div className="flex flex-col gap-2"></div>
+                <ScoreGauge score={overall} />
+                <div className="flex flex-col gap-2"></div>
                 <h2 className="text-2xl font-bold"> Your Resume Score</h2>
                 <p className="text-sm text-gray-500">
                     This score is calculated based on the variables listed below.
                 </p>
-
             </div>
 
-            <Category title="tone & style"  score={feedback.toneAndStyle.score} />
-            <Category title="content"  score={feedback.content.score} />
-            <Category title="structure"  score={feedback.structure.score} />
-            <Category title="skills"  score={feedback.skills.score} />
-
+            <Category title="tone & style" score={tone} />
+            <Category title="content" score={content} />
+            <Category title="structure" score={structure} />
+            <Category title="skills" score={skills} />
         </div>
-    )
+    );
 }
 export default Summary;

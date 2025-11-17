@@ -5,7 +5,7 @@ import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {convertPdfToImage} from "~/lib/pdf2img";
 import {generateUUID} from "~/lib/utils";
-import {prepareInstructions} from "~/constants";
+import {prepareInstructions, AIResponseFormat} from "~/constants";
 
 const Upload = () => {
     const { auth, isLoading, fs, ai, kv } = usePuterStore();
@@ -14,56 +14,157 @@ const Upload = () => {
     const [statusText, setStatusText] = useState('');
     const [file, setFile] = useState<File | null>(null);
 
-
+    const userId = auth.user?.uuid;
 
     const handleFileSelect = (file: File | null) => {
         setFile(file)
     }
 
-    const handleAnalyze = async ({ companyName, jobTitle, jobDescription, file }: { companyName: string, jobTitle: string, jobDescription: string, file: File  }) => {
-        setIsProcessing(true);
+    const normalizeFeedback = (input: any): Feedback => {
+        const coerceTips = (
+  arr: any
+): { type: 'good' | 'improve'; tip: string; explanation: string }[] =>
+  Array.isArray(arr)
+    ? arr.map((t: any) => ({
+        type: t?.type === 'good' ? 'good' : 'improve',
+        tip: String(t?.tip ?? ''),
+        explanation: String(t?.explanation ?? ''),
+      }))
+    : [];
 
-        setStatusText('Uploading the file...');
-        const uploadedFile = await fs.upload([file]);
-        if(!uploadedFile) return setStatusText('Error: Failed to upload file');
+        return {
+            overallScore: Number(input?.overallScore ?? 0),
+            ATS: {
+                score: Number(input?.ATS?.score ?? 0),
+                tips: ((Array.isArray(input?.ATS?.tips) ? input.ATS.tips : []).map((t: any) => ({
+                    type: t?.type === 'good' ? 'good' : 'improve',
+                    tip: String(t?.tip ?? ''),
+                })) as Feedback["ATS"]["tips"]),
+            },
+            toneAndStyle: {
+                score: Number(input?.toneAndStyle?.score ?? 0),
+                tips: coerceTips(input?.toneAndStyle?.tips),
+            },
+            content: {
+                score: Number(input?.content?.score ?? 0),
+                tips: coerceTips(input?.content?.tips),
+            },
+            structure: {
+                score: Number(input?.structure?.score ?? 0),
+                tips: coerceTips(input?.structure?.tips),
+            },
+            skills: {
+                score: Number(input?.skills?.score ?? 0),
+                tips: coerceTips(input?.skills?.tips),
+            },
+        };
+    };
 
-        setStatusText('Converting to image...');
-        const imageFile = await convertPdfToImage(file);
-        if(!imageFile.file) return setStatusText('Error: Failed to convert PDF to image');
+    const handleAnalyze = async ({
+                                     companyName,
+                                     jobTitle,
+                                     jobDescription,
+                                     file,
+                                 }: {
+        companyName: string;
+        jobTitle: string;
+        jobDescription: string;
+        file: File;
+    }) => {
+        try {
+            setIsProcessing(true);
 
-        setStatusText('Uploading the image...');
-        const uploadedImage = await fs.upload([imageFile.file]);
-        if(!uploadedImage) return setStatusText('Error: Failed to upload image');
+            setStatusText('Checking wallet...');
+            if (!userId) {
+                setStatusText('You must be signed in. Redirecting to auth...');
+                navigate('/auth?next=/upload');
+                return;
+            }
+            const rawCoins = await kv.get(`coins:${userId}`);
+            const currentCoins = rawCoins ? Number(rawCoins) : 0;
+            if (!Number.isFinite(currentCoins) || currentCoins < 1) {
+                setStatusText('Insufficient coins. Please buy a coin on the homepage. Redirecting...');
+                setTimeout(() => navigate('/'), 1200);
+                return;
+            }
 
-        setStatusText('Preparing data...');
-        const uuid = generateUUID();
-        const data = {
-            id: uuid,
-            resumePath: uploadedFile.path,
-            imagePath: uploadedImage.path,
-            companyName, jobTitle, jobDescription,
-            feedback: '',
+            setStatusText('Uploading the file...');
+            const uploadedFile = await fs.upload([file]);
+            if (!uploadedFile) {
+                setStatusText('Error: Failed to upload file');
+                return;
+            }
+
+            setStatusText('Converting to image...');
+            const imageFile = await convertPdfToImage(file);
+            if (!imageFile.file) {
+                setStatusText('Error: Failed to convert PDF to image');
+                return;
+            }
+
+            setStatusText('Uploading the image...');
+            const uploadedImage = await fs.upload([imageFile.file]);
+            if (!uploadedImage) {
+                setStatusText('Error: Failed to upload image');
+                return;
+            }
+
+            setStatusText('Preparing data...');
+            const uuid = generateUUID();
+            const data = {
+                id: uuid,
+                resumePath: uploadedFile.path,
+                imagePath: uploadedImage.path,
+                companyName,
+                jobTitle,
+                jobDescription,
+                feedback: '',
+            };
+            await kv.set(`resume:${uuid}`, JSON.stringify(data));
+
+            setStatusText('Examining...');
+
+            const feedback = await ai.feedback(
+                uploadedFile.path,
+                prepareInstructions({ AIResponseFormat, jobTitle, jobDescription })
+            );
+
+            if (!feedback) {
+                setStatusText('Error: Failed to examine resume');
+                return;
+            }
+
+            const feedbackText =
+                typeof feedback.message.content === 'string'
+                    ? feedback.message.content
+                    : feedback.message.content[0].text;
+
+            (data as any).feedback = normalizeFeedback(JSON.parse(feedbackText));
+            await kv.set(`resume:${uuid}`, JSON.stringify(data));
+
+            // Debit 1 coin for this completed review
+            try {
+                if (userId) {
+                    const rawCoins2 = await kv.get(`coins:${userId}`);
+                    const coins2 = rawCoins2 ? Number(rawCoins2) : 0;
+                    const nextCoins = Math.max(0, (Number.isFinite(coins2) ? coins2 : 0) - 1);
+                    await kv.set(`coins:${userId}`, String(nextCoins));
+                }
+            } catch (e) {
+                console.warn('Failed to debit coin:', e);
+            }
+
+            setStatusText('Examination complete, redirecting...');
+            console.log(data);
+            navigate(`/resume/${uuid}`);
+        } catch (err: any) {
+            console.error('handleAnalyze error:', err);
+            setStatusText(
+                err?.error?.message || err?.message || 'Error: Failed to examine resume'
+            );
+            setIsProcessing(false);
         }
-        await kv.set(`resume:${uuid}`, JSON.stringify(data));
-
-        setStatusText('Examining...');
-
-        const feedback = await ai.feedback(
-            uploadedFile.path,
-            prepareInstructions({AIResponseFormat: "", jobTitle, jobDescription })
-        )
-        if (!feedback) return setStatusText('Error: Failed to examine resume');
-
-        const feedbackText = typeof feedback.message.content === 'string'
-            ? feedback.message.content
-            : feedback.message.content[0].text;
-
-        data.feedback = JSON.parse(feedbackText);
-        await kv.set(`resume:${uuid}`, JSON.stringify(data));
-        setStatusText('Examination complete, redirecting...');
-        console.log(data);
-        navigate(`/resume/${uuid}`);
-    }
+    };
 
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
