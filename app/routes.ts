@@ -8,5 +8,13 @@ export default [
     index("routes/home.tsx"),
     route("/upload", "routes/upload.tsx"),
     route("/resume/:id", "routes/resume.tsx"),
+    route("/profile", "routes/profile.tsx"),
+      route("/verifySuccess", "routes/verifySuccess.tsx"),
+      route("/verifyFailed", "routes/verifyFailed.tsx"),
+      route("/verifyExpired", "routes/verifyExpired.tsx"),
+
+
+
+
   ]),
 ] satisfies RouteConfig;

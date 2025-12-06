@@ -1,20 +1,17 @@
 import {type FormEvent, useState} from 'react'
 import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
-import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {convertPdfToImage} from "~/lib/pdf2img";
 import {generateUUID} from "~/lib/utils";
-import {prepareInstructions, AIResponseFormat} from "~/constants";
+import { useAuthStore } from "~/lib/backend";
 
 const Upload = () => {
-    const { auth, isLoading, fs, ai, kv } = usePuterStore();
     const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false);
     const [statusText, setStatusText] = useState('');
     const [file, setFile] = useState<File | null>(null);
 
-    const userId = auth.user?.uuid;
 
     const handleFileSelect = (file: File | null) => {
         setFile(file)
@@ -75,23 +72,18 @@ const Upload = () => {
             setIsProcessing(true);
 
             setStatusText('Checking wallet...');
-            if (!userId) {
+            // Ensure backend session and wallet are up to date
+            const { fetchMe } = useAuthStore.getState();
+            await fetchMe().catch(() => {});
+            const authed = useAuthStore.getState().isAuthenticated;
+            if (!authed) {
                 setStatusText('You must be signed in. Redirecting to auth...');
                 navigate('/auth?next=/upload');
                 return;
             }
-            const rawCoins = await kv.get(`coins:${userId}`);
-            const currentCoins = rawCoins ? Number(rawCoins) : 0;
-            if (!Number.isFinite(currentCoins) || currentCoins < 1) {
-                setStatusText('Insufficient coins. Please buy a coin on the homepage. Redirecting...');
-                setTimeout(() => navigate('/'), 1200);
-                return;
-            }
-
-            setStatusText('Uploading the file...');
-            const uploadedFile = await fs.upload([file]);
-            if (!uploadedFile) {
-                setStatusText('Error: Failed to upload file');
+            const currentCoins = useAuthStore.getState().user?.coins ?? 0;
+            if (currentCoins < 1) {
+                setStatusText('Insufficient coins. Please buy a coin on the homepage.');
                 return;
             }
 
@@ -102,57 +94,58 @@ const Upload = () => {
                 return;
             }
 
-            setStatusText('Uploading the image...');
-            const uploadedImage = await fs.upload([imageFile.file]);
-            if (!uploadedImage) {
-                setStatusText('Error: Failed to upload image');
-                return;
-            }
+            // Create in-memory URLs for preview (valid for this tab session)
+            const resumeUrl = URL.createObjectURL(file);
+            const imageUrl = URL.createObjectURL(imageFile.file);
 
             setStatusText('Preparing data...');
             const uuid = generateUUID();
             const data = {
                 id: uuid,
-                resumePath: uploadedFile.path,
-                imagePath: uploadedImage.path,
+                resumeUrl,
+                imageUrl,
                 companyName,
                 jobTitle,
                 jobDescription,
                 feedback: '',
-            };
-            await kv.set(`resume:${uuid}`, JSON.stringify(data));
+            } as any;
+            // Persist transiently in sessionStorage for the resume page
+            try { sessionStorage.setItem(`resume:${uuid}`, JSON.stringify(data)); } catch {}
 
             setStatusText('Examining...');
 
-            const feedback = await ai.feedback(
-                uploadedFile.path,
-                prepareInstructions({ AIResponseFormat, jobTitle, jobDescription })
-            );
+            // Convert image blob to base64 data URL for backend (Gemini) analysis
+            const toBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result));
+                reader.onerror = reject;
+                reader.readAsDataURL(blob); // data:image/png;base64,...
+            });
 
-            if (!feedback) {
-                setStatusText('Error: Failed to examine resume');
+            const imageBase64 = await toBase64(imageFile.file);
+
+            // Post to backend analyze-resume.php (backend will also debit 1 coin on success)
+            const base = (import.meta.env.VITE_BACKEND_URL as string).replace(/\/$/, '');
+            const resp = await fetch(`${base}/analyze-resume.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ companyName, jobTitle, jobDescription, imageBase64 })
+            });
+            const result = await resp.json().catch(() => ({}));
+            if (!resp.ok || !result?.ok || !result?.feedback) {
+                const msg = result?.error || `Failed to examine resume (${resp.status})`;
+                setStatusText(msg);
+                setIsProcessing(false);
                 return;
             }
 
-            const feedbackText =
-                typeof feedback.message.content === 'string'
-                    ? feedback.message.content
-                    : feedback.message.content[0].text;
+            // Backend already returns feedback in expected format. Normalize defensively.
+            (data as any).feedback = normalizeFeedback(result.feedback);
+            try { sessionStorage.setItem(`resume:${uuid}`, JSON.stringify(data)); } catch {}
 
-            (data as any).feedback = normalizeFeedback(JSON.parse(feedbackText));
-            await kv.set(`resume:${uuid}`, JSON.stringify(data));
-
-            // Debit 1 coin for this completed review
-            try {
-                if (userId) {
-                    const rawCoins2 = await kv.get(`coins:${userId}`);
-                    const coins2 = rawCoins2 ? Number(rawCoins2) : 0;
-                    const nextCoins = Math.max(0, (Number.isFinite(coins2) ? coins2 : 0) - 1);
-                    await kv.set(`coins:${userId}`, String(nextCoins));
-                }
-            } catch (e) {
-                console.warn('Failed to debit coin:', e);
-            }
+            // Refresh backend user to update coin balance in UI (server already debited)
+            try { await useAuthStore.getState().fetchMe(); } catch {}
 
             setStatusText('Examination complete, redirecting...');
             console.log(data);
