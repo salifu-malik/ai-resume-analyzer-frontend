@@ -7,6 +7,7 @@ export interface BackendUser {
   email: string;
   name?: string;
   coins?: number;
+
 }
 
 export interface LoginPayload { email: string; password: string }
@@ -69,10 +70,13 @@ const hasFreshCache = (): { fresh: boolean; user: BackendUser | null } => {
   return { fresh, user: fresh ? cached.user : null };
 };
 
+const CLIENT_KEY = import.meta.env.VITE_CLIENT_KEY;
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const url = `${BASE_URL?.replace(/\/$/, "") ?? ""}/${path.replace(/^\//, "")}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+      "X-CLIENT-KEY": CLIENT_KEY || "",
+
     ...(init?.headers || {} as any),
   };
   const res = await fetch(url, {
