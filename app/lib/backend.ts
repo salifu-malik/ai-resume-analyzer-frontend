@@ -1,13 +1,30 @@
 import { create } from "zustand";
-
-
+console.log("VITE_BACKEND_URL =", import.meta.env.VITE_BACKEND_URL);
 
 export interface BackendUser {
   id: string;
   email: string;
   name?: string;
   coins?: number;
+  role?: "user" | "admin";
+  is_blocked?: boolean;
+}
 
+export interface Transaction {
+  id: string;
+  user_id: string;
+  amount: number;
+  type: "credit" | "debit";
+  description: string;
+  phone: string | null;
+  receipt_number: string | null;
+  paystack_status: string | null;
+  channel: string | null;
+  created_at: string;
+  user?: {
+    name: string;
+    email: string;
+  };
 }
 
 export interface LoginPayload { email: string; password: string }
@@ -70,12 +87,13 @@ const hasFreshCache = (): { fresh: boolean; user: BackendUser | null } => {
   return { fresh, user: fresh ? cached.user : null };
 };
 
-const CLIENT_KEY = import.meta.env.VITE_CLIENT_KEY;
+// const CLIENT_KEY = import.meta.env.VITE_CLIENT_KEY;
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const url = `${BASE_URL?.replace(/\/$/, "") ?? ""}/${path.replace(/^\//, "")}`;
+  console.log("API FETCH URL =", url);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-      "X-CLIENT-KEY": CLIENT_KEY || "",
+      // "X-CLIENT-KEY": CLIENT_KEY || "",
 
     ...(init?.headers || {} as any),
   };
@@ -247,5 +265,28 @@ export const backend = {
       method: "POST",
       body: JSON.stringify({ reference }),
     });
+  },
+
+  // admin
+  async adminGetUsers(query?: string): Promise<{ ok: boolean; users: BackendUser[] }> {
+    const q = query ? `?q=${encodeURIComponent(query)}` : "";
+    return apiFetch<{ ok: boolean; users: BackendUser[] }>(`admin/users${q}`, { method: "GET" });
+  },
+  async adminGetTransactions(query?: string): Promise<{ ok: boolean; transactions: Transaction[] }> {
+    const q = query ? `?q=${encodeURIComponent(query)}` : "";
+    return apiFetch<{ ok: boolean; transactions: Transaction[] }>(
+        `admin/transactions${q}`,
+        { method: "GET" }
+    );
+  },
+
+  async adminBlockUser(userId: string, block: boolean): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>(`admin/users/${userId}/block`, {
+      method: "POST",
+      body: JSON.stringify({ block }),
+    });
+  },
+  async adminDeleteUser(userId: string): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>(`admin/users/${userId}`, { method: "DELETE" });
   },
 };

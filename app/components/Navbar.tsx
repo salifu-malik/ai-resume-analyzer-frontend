@@ -77,6 +77,28 @@ const Navbar = () => {
               aria-label="Account menu"
               className="absolute right-0 mt-2 min-w-[180px] rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden z-50"
             >
+              {user?.role !== "admin" && (
+                  <Link
+                      to="/"
+                      role="menuitem"
+                      onClick={() => setOpen(false)}
+                      className="block w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-800"
+                  >
+                    Home
+                  </Link>
+              )}
+
+              {user?.role === "admin" && (
+                <Link
+                  to="/admin"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="block w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm font-semibold text-cyan-600"
+                >
+                  Admin Portal
+                </Link>
+              )}
+
               <Link
                 to="/profile"
                 role="menuitem"

@@ -12,9 +12,11 @@ export default [
       route("/verifySuccess", "routes/verifySuccess.tsx"),
       route("/verifyFailed", "routes/verifyFailed.tsx"),
       route("/verifyExpired", "routes/verifyExpired.tsx"),
+    ]),
 
-
-
-
-  ]),
-] satisfies RouteConfig;
+    // Admin Portal
+    route("/admin", "routes/admin/layout.tsx", [
+      index("routes/admin/dashboard.tsx"),
+      route("transactions", "routes/admin/transactions.tsx"),
+    ]),
+  ] satisfies RouteConfig;
