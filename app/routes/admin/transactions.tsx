@@ -8,9 +8,7 @@ export default function AdminTransactions() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  /* ============================================================
-   * Load transactions ONCE
-   * ============================================================ */
+   //Load transactions ONCE
   useEffect(() => {
     const loadTransactions = async () => {
       try {
@@ -28,9 +26,7 @@ export default function AdminTransactions() {
     loadTransactions();
   }, []);
 
-  /* ============================================================
-   * Frontend search (phone, receipt, user, email)
-   * ============================================================ */
+   //Frontend search (phone, receipt, user, email)
   useEffect(() => {
     const q = search.toLowerCase().trim();
 
@@ -75,6 +71,7 @@ export default function AdminTransactions() {
               <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Date</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Time</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">User</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Description</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Phone</th>
@@ -88,21 +85,32 @@ export default function AdminTransactions() {
               <tbody className="divide-y divide-gray-100">
               {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                       Loading transactions...
                     </td>
                   </tr>
               ) : transactions.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                       No transactions found
                     </td>
                   </tr>
               ) : (
                   transactions.map(tx => (
                       <tr key={tx.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {new Date(tx.created_at).toLocaleDateString()}
+                        <td className="px-6 py-4 text-xs text-gray-500">
+                          {new Date(tx.created_at).toLocaleDateString("en-GB", {
+                            year: "numeric",
+                            month: "short",
+                            day: "2-digit",
+                          })}
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-500">
+                          {new Date(tx.created_at).toLocaleTimeString("en-GB", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                          })}
                         </td>
 
                         <td className="px-6 py-4">

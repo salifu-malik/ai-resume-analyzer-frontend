@@ -1,6 +1,6 @@
 
 import { create } from "zustand";
-console.log("VITE_BACKEND_URL =", import.meta.env.VITE_BACKEND_URL);
+// console.log("VITE_BACKEND_URL =", import.meta.env.VITE_BACKEND_URL);
 
 export interface BackendUser {
   id: string;
@@ -9,6 +9,7 @@ export interface BackendUser {
   coins?: number;
   role?: "user" | "admin";
   is_blocked?: boolean;
+  is_verify?: boolean;
 }
 
 export interface Transaction {
@@ -42,6 +43,20 @@ export interface VerifyResponse {
   http_status: number;
   paystack: any; // raw paystack verify response
 }
+
+const ERROR_MESSAGES: Record<string, string> = {
+  account_blocked_permanently: "Your account has been permanently blocked. Please contact support.",
+  invalid_credentials: "Incorrect email or password",
+  unauthorized: "You are not authorized to perform this action",
+  account_not_verified: " Your account is not verified, Kindly click on the link sent to your mail to verify your account.",
+  method_not_allowed: "You are not allowed to perform this action",
+  logged_out: "You were logged out because your account was used on another device.",
+  account_temporarily_blocked: "Your account is blocked temporarily. Please try again after  the required minutes.",
+  account_temporarily_blocked1: "Your account has been blocked temporarily. Please try again after 10 minutes.",
+ account_temporarily_blocked2: "Your account has been temporarily blocked. Please try again after 30 minutes." ,
+
+};
+
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
 
@@ -91,7 +106,7 @@ const hasFreshCache = (): { fresh: boolean; user: BackendUser | null } => {
 // const CLIENT_KEY = import.meta.env.VITE_CLIENT_KEY;
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const url = `${BASE_URL?.replace(/\/$/, "") ?? ""}/${path.replace(/^\//, "")}`;
-  console.log("API FETCH URL =", url);
+  // console.log("API FETCH URL =", url);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     // "X-CLIENT-KEY": CLIENT_KEY || "",
@@ -107,8 +122,21 @@ const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const isJSON = contentType.includes("application/json");
   const body = isJSON ? await res.json() : await res.text();
   if (!res.ok) {
-    const msg = (isJSON ? (body?.message || body?.error) : body) || `Request failed (${res.status})`;
-    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    // const msg = (isJSON ? (body?.message || body?.error) : body) || `Request failed (${res.status})`;
+    // throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    const raw =
+        (isJSON ? (body?.error || body?.message) : body) ||
+        `Request failed (${res.status})`;
+
+    const friendly =
+        typeof raw === "string" && ERROR_MESSAGES[raw]
+            ? ERROR_MESSAGES[raw]
+            : raw;
+
+    throw new Error(
+        typeof friendly === "string" ? friendly : JSON.stringify(friendly)
+    );
+
   }
   return body as T;
 };

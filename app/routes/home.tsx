@@ -159,6 +159,7 @@ export default function Home() {
                                         type="email"
                                         placeholder="you@example.com"
                                         value={email}
+                                        readOnly
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full border border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-200/60 outline-none rounded-lg px-3 py-2 bg-white"
                                     />

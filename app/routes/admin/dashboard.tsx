@@ -13,9 +13,7 @@ export default function AdminUsers() {
   const [modalUser, setModalUser] = useState<BackendUser | null>(null);
   const [modalAction, setModalAction] = useState<ModalAction>(null);
 
-  /* ============================================================
-   * Load users ONCE
-   * ============================================================ */
+      //Load users ONCE
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -33,9 +31,7 @@ export default function AdminUsers() {
     loadUsers();
   }, []);
 
-  /* ============================================================
-   * Frontend search
-   * ============================================================ */
+    //Frontend search
   useEffect(() => {
     const q = search.toLowerCase().trim();
 
@@ -52,9 +48,7 @@ export default function AdminUsers() {
     );
   }, [search, allUsers]);
 
-  /* ============================================================
-   * Confirmed actions
-   * ============================================================ */
+   //Confirmed actions
   const confirmAction = async () => {
     if (!modalUser || !modalAction) return;
 
@@ -116,6 +110,7 @@ export default function AdminUsers() {
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">User</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Email</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Verified</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Coins</th>
                 <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase text-right">Actions</th>
               </tr>
@@ -141,7 +136,19 @@ export default function AdminUsers() {
                           <div className="text-xs text-gray-400">{user.id}</div>
                         </td>
                         <td className="px-6 py-4">{user.email}</td>
+                        <td className="px-6 py-4">
+        <span
+            className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                user.is_verify
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-gray-100 text-gray-500"
+            }`}
+        >
+          {user.is_verify ? "Yes" : "No"}
+        </span>
+                        </td>
                         <td className="px-6 py-4">{user.coins || 0} coins</td>
+
                         <td className="px-6 py-4 text-right space-x-2">
                           <button
                               onClick={() => {
@@ -191,9 +198,7 @@ export default function AdminUsers() {
   );
 }
 
-/* ============================================================
- * Confirmation Modal (single, lazy)
- * ============================================================ */
+ //Confirmation Modal (single, lazy)
 function ConfirmModal({
                         user,
                         action,
