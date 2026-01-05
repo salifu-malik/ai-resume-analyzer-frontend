@@ -1,3 +1,4 @@
+
 import { create } from "zustand";
 console.log("VITE_BACKEND_URL =", import.meta.env.VITE_BACKEND_URL);
 
@@ -93,7 +94,7 @@ const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   console.log("API FETCH URL =", url);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-      // "X-CLIENT-KEY": CLIENT_KEY || "",
+    // "X-CLIENT-KEY": CLIENT_KEY || "",
 
     ...(init?.headers || {} as any),
   };
@@ -270,23 +271,23 @@ export const backend = {
   // admin
   async adminGetUsers(query?: string): Promise<{ ok: boolean; users: BackendUser[] }> {
     const q = query ? `?q=${encodeURIComponent(query)}` : "";
-    return apiFetch<{ ok: boolean; users: BackendUser[] }>(`admin/users${q}`, { method: "GET" });
+    return apiFetch<{ ok: boolean; users: BackendUser[] }>(`/admin/users${q}`, { method: "GET" });
   },
   async adminGetTransactions(query?: string): Promise<{ ok: boolean; transactions: Transaction[] }> {
     const q = query ? `?q=${encodeURIComponent(query)}` : "";
     return apiFetch<{ ok: boolean; transactions: Transaction[] }>(
-        `admin/transactions${q}`,
+        `/admin/transactions${q}`,
         { method: "GET" }
     );
   },
 
   async adminBlockUser(userId: string, block: boolean): Promise<{ ok: boolean }> {
-    return apiFetch<{ ok: boolean }>(`admin/users/${userId}/block`, {
+    return apiFetch<{ ok: boolean }>(`/admin/users/${userId}/block`, {
       method: "POST",
       body: JSON.stringify({ block }),
     });
   },
   async adminDeleteUser(userId: string): Promise<{ ok: boolean }> {
-    return apiFetch<{ ok: boolean }>(`admin/users/${userId}`, { method: "DELETE" });
+    return apiFetch<{ ok: boolean }>(`/admin/users/${userId}`, { method: "DELETE" });
   },
 };

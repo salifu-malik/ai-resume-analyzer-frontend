@@ -46,9 +46,12 @@ const Navbar = () => {
       </Link>
 
       <div className="flex items-center gap-3">
-        <Link to="/upload" className="primary-button w-fit">
-          Upload Resume
-        </Link>
+        {user?.role !== "admin" && (
+            <Link to="/upload" className="primary-button w-fit">
+              Upload Resume
+            </Link>
+        )}
+
 
         {/* User menu */}
         <div className="relative">
