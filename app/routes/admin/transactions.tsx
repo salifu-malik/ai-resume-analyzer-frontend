@@ -2,52 +2,64 @@ import { useState, useEffect } from "react";
 import { backend, type Transaction } from "~/lib/backend";
 
 export default function AdminTransactions() {
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  const fetchTransactions = async (query?: string) => {
-    try {
-      setLoading(true);
-      const res = await backend.adminGetTransactions(query);
-      setTransactions(res.transactions);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch transactions");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  /* ============================================================
+   * Load transactions ONCE
+   * ============================================================ */
   useEffect(() => {
-    fetchTransactions();
+    const loadTransactions = async () => {
+      try {
+        setLoading(true);
+        const res = await backend.adminGetTransactions();
+        setAllTransactions(res.transactions);
+        setTransactions(res.transactions);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch transactions");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTransactions();
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchTransactions(search);
-  };
+  /* ============================================================
+   * Frontend search (phone, receipt, user, email)
+   * ============================================================ */
+  useEffect(() => {
+    const q = search.toLowerCase().trim();
+
+    if (!q) {
+      setTransactions(allTransactions);
+      return;
+    }
+
+    setTransactions(
+        allTransactions.filter(tx =>
+            tx.phone?.toLowerCase().includes(q) ||
+            tx.receipt_number?.toLowerCase().includes(q) ||
+            tx.user?.name?.toLowerCase().includes(q) ||
+            tx.user?.email?.toLowerCase().includes(q)
+        )
+    );
+  }, [search, allTransactions]);
 
   return (
       <div className="space-y-6">
         {/* SEARCH BAR */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <form onSubmit={handleSearch} className="flex gap-4">
-            <input
-                type="text"
-                placeholder="Search by phone or receipt number..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 p-3 border border-gray-200 rounded-xl outline-none focus:border-cyan-500 transition-all"
-            />
-            <button
-                type="submit"
-                className="px-6 py-3 bg-cyan-600 text-white font-semibold rounded-xl hover:bg-cyan-700 transition-all shadow-md"
-            >
-              Search
-            </button>
-          </form>
+          <input
+              type="text"
+              placeholder="Search by phone, receipt, user or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-cyan-500 transition-all"
+          />
         </div>
 
         {error && (
@@ -87,18 +99,24 @@ export default function AdminTransactions() {
                     </td>
                   </tr>
               ) : (
-                  transactions.map((tx) => (
-                      <tr key={tx.id}>
+                  transactions.map(tx => (
+                      <tr key={tx.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-500">
                           {new Date(tx.created_at).toLocaleDateString()}
                         </td>
 
                         <td className="px-6 py-4">
-                          <div className="text-sm font-semibold">{tx.user?.name || "Unknown"}</div>
-                          <div className="text-xs text-gray-400">{tx.user?.email}</div>
+                          <div className="text-sm font-semibold">
+                            {tx.user?.name || "Unknown"}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {tx.user?.email || "—"}
+                          </div>
                         </td>
 
-                        <td className="px-6 py-4 text-sm">{tx.description}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {tx.description}
+                        </td>
 
                         <td className="px-6 py-4 text-sm">
                           {tx.phone || "—"}

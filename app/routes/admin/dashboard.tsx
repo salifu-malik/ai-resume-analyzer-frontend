@@ -1,71 +1,105 @@
 import { useState, useEffect } from "react";
 import { backend, type BackendUser } from "~/lib/backend";
 
+type ModalAction = "block" | "delete" | null;
+
 export default function AdminUsers() {
+  const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUsers = async (query?: string) => {
-    try {
-      setLoading(true);
-      const res = await backend.adminGetUsers(query);
-      setUsers(res.users);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch users");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [modalUser, setModalUser] = useState<BackendUser | null>(null);
+  const [modalAction, setModalAction] = useState<ModalAction>(null);
 
+  /* ============================================================
+   * Load users ONCE
+   * ============================================================ */
   useEffect(() => {
-    fetchUsers();
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        const res = await backend.adminGetUsers();
+        setAllUsers(res.users);
+        setUsers(res.users);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch users");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchUsers(search);
-  };
+  /* ============================================================
+   * Frontend search
+   * ============================================================ */
+  useEffect(() => {
+    const q = search.toLowerCase().trim();
 
-  const toggleBlock = async (userId: string, currentlyBlocked: boolean) => {
+    if (!q) {
+      setUsers(allUsers);
+      return;
+    }
+
+    setUsers(
+        allUsers.filter(u =>
+            u.name?.toLowerCase().includes(q) ||
+            u.email?.toLowerCase().includes(q)
+        )
+    );
+  }, [search, allUsers]);
+
+  /* ============================================================
+   * Confirmed actions
+   * ============================================================ */
+  const confirmAction = async () => {
+    if (!modalUser || !modalAction) return;
+
     try {
-      await backend.adminBlockUser(userId, !currentlyBlocked);
-      setUsers(users.map(u => u.id === userId ? { ...u, is_blocked: !currentlyBlocked } : u));
+      if (modalAction === "block") {
+        await backend.adminBlockUser(
+            modalUser.id,
+            !modalUser.is_blocked
+        );
+
+        setAllUsers(users =>
+            users.map(u =>
+                u.id === modalUser.id
+                    ? { ...u, is_blocked: !u.is_blocked }
+                    : u
+            )
+        );
+      }
+
+      if (modalAction === "delete") {
+        await backend.adminDeleteUser(modalUser.id);
+
+        setAllUsers(users =>
+            users.filter(u => u.id !== modalUser.id)
+        );
+      }
     } catch (err: any) {
       alert(err.message || "Action failed");
-    }
-  };
-
-  const handleDelete = async (userId: string) => {
-    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
-    try {
-      await backend.adminDeleteUser(userId);
-      setUsers(users.filter(u => u.id !== userId));
-    } catch (err: any) {
-      alert(err.message || "Delete failed");
+    } finally {
+      setModalUser(null);
+      setModalAction(null);
     }
   };
 
   return (
       <div className="space-y-6">
+        {/* Search */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <form onSubmit={handleSearch} className="flex gap-4">
-            <input
-                type="text"
-                placeholder="Search by username or phone or email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 p-3 border border-gray-200 rounded-xl outline-none focus:border-cyan-500 transition-all"
-            />
-            <button
-                type="submit"
-                className="px-6 py-3 bg-cyan-600 text-white font-semibold rounded-xl hover:bg-cyan-700 transition-all shadow-md"
-            >
-              Search
-            </button>
-          </form>
+          <input
+              type="text"
+              placeholder="Search by username or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:border-cyan-500 transition-all"
+          />
         </div>
 
         {error && (
@@ -74,25 +108,23 @@ export default function AdminUsers() {
             </div>
         )}
 
+        {/* Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase tracking-wider">User</th>
-                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase tracking-wider">Coins</th>
-                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">User</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Email</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase">Coins</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-400 uppercase text-right">Actions</th>
               </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
               {loading ? (
                   <tr>
                     <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                      <div className="flex justify-center items-center gap-2">
-                        <span className="animate-spin h-5 w-5 border-2 border-cyan-500 border-t-transparent rounded-full"></span>
-                        Loading users...
-                      </div>
+                      Loading users...
                     </td>
                   </tr>
               ) : users.length === 0 ? (
@@ -102,32 +134,35 @@ export default function AdminUsers() {
                     </td>
                   </tr>
               ) : (
-                  users.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                  users.map(user => (
+                      <tr key={user.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                          <div className="font-semibold text-gray-900">{user.name || "N/A"}</div>
+                          <div className="font-semibold">{user.name || "N/A"}</div>
                           <div className="text-xs text-gray-400">{user.id}</div>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{user.email}</td>
-                        <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
-                        {user.coins || 0} coins
-                      </span>
-                        </td>
+                        <td className="px-6 py-4">{user.email}</td>
+                        <td className="px-6 py-4">{user.coins || 0} coins</td>
                         <td className="px-6 py-4 text-right space-x-2">
                           <button
-                              onClick={() => toggleBlock(user.id, !!user.is_blocked)}
-                              className={`px-3 py-1 rounded-lg text-sm font-medium border transition-all ${
+                              onClick={() => {
+                                setModalUser(user);
+                                setModalAction("block");
+                              }}
+                              className={`px-3 py-1 rounded-lg text-sm border ${
                                   user.is_blocked
-                                      ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
-                                      : "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
+                                      ? "bg-emerald-50 text-emerald-600"
+                                      : "bg-amber-50 text-amber-600"
                               }`}
                           >
                             {user.is_blocked ? "Unblock" : "Block"}
                           </button>
+
                           <button
-                              onClick={() => handleDelete(user.id)}
-                              className="px-3 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-all"
+                              onClick={() => {
+                                setModalUser(user);
+                                setModalAction("delete");
+                              }}
+                              className="px-3 py-1 bg-red-50 text-red-600 border rounded-lg text-sm"
                           >
                             Delete
                           </button>
@@ -137,6 +172,62 @@ export default function AdminUsers() {
               )}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Lazy Modal */}
+        {modalUser && modalAction && (
+            <ConfirmModal
+                user={modalUser}
+                action={modalAction}
+                onCancel={() => {
+                  setModalUser(null);
+                  setModalAction(null);
+                }}
+                onConfirm={confirmAction}
+            />
+        )}
+      </div>
+  );
+}
+
+/* ============================================================
+ * Confirmation Modal (single, lazy)
+ * ============================================================ */
+function ConfirmModal({
+                        user,
+                        action,
+                        onCancel,
+                        onConfirm
+                      }: {
+  user: BackendUser;
+  action: "block" | "delete";
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-6 w-full max-w-md">
+          <h2 className="text-lg font-bold mb-3">
+            {action === "delete" ? "Delete User" : "Block User"}
+          </h2>
+
+          <p className="text-sm text-gray-600 mb-6">
+            Are you sure you want to {action} <strong>{user.email}</strong>?
+          </p>
+
+          <div className="flex justify-end gap-3">
+            <button onClick={onCancel} className="px-4 py-2 border rounded-lg">
+              Cancel
+            </button>
+            <button
+                onClick={onConfirm}
+                className={`px-4 py-2 rounded-lg text-white ${
+                    action === "delete" ? "bg-red-600" : "bg-amber-600"
+                }`}
+            >
+              Confirm
+            </button>
           </div>
         </div>
       </div>
