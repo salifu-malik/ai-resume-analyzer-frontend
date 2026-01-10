@@ -18,5 +18,13 @@ export default [
     route("/admin", "routes/admin/layout.tsx", [
       index("routes/admin/dashboard.tsx"),
       route("transactions", "routes/admin/transactions.tsx"),
+        route("sendEmail", "routes/admin/sendEmail.tsx"),
     ]),
+
+  // Super Admin Portal
+  route("/super_admin", "routes/super_admin/layout.tsx", [
+    index("routes/super_admin/userDashboard.tsx"),
+    route("adminDashboard.tsx", "routes/super_admin/adminDashboard.tsx"),
+    route("transactions", "routes/super_admin/transactions.tsx"),
+  ]),
   ] satisfies RouteConfig;

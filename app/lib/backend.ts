@@ -7,7 +7,7 @@ export interface BackendUser {
   email: string;
   name?: string;
   coins?: number;
-  role?: "user" | "admin";
+  role?: "user" | "admin" | "super_admin";
   is_blocked?: boolean;
   is_verify?: boolean;
 }
@@ -28,6 +28,13 @@ export interface Transaction {
     email: string;
   };
 }
+
+export interface AdminSendEmailPayload {
+  to: string;
+  subject: string;
+  message: string;
+}
+
 
 export interface LoginPayload { email: string; password: string }
 export interface RegisterPayload { name?: string; email: string; password: string; confirm_password?: string }
@@ -308,6 +315,14 @@ export const backend = {
         { method: "GET" }
     );
   },
+  async adminSendEmail(
+      payload: AdminSendEmailPayload
+  ): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>(`/admin/send-email`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
 
   async adminBlockUser(userId: string, block: boolean): Promise<{ ok: boolean }> {
     return apiFetch<{ ok: boolean }>(`/admin/users/${userId}/block`, {
@@ -318,4 +333,30 @@ export const backend = {
   async adminDeleteUser(userId: string): Promise<{ ok: boolean }> {
     return apiFetch<{ ok: boolean }>(`/admin/users/${userId}`, { method: "DELETE" });
   },
+
+
+
+// Super admin
+async superAdminGetUsers(query?: string): Promise<{ ok: boolean; users: BackendUser[] }> {
+  const q = query ? `?q=${encodeURIComponent(query)}` : "";
+  return apiFetch<{ ok: boolean; users: BackendUser[] }>(`/super_admin/users${q}`, { method: "GET" });
+},
+    async superAdminGetTransactions(query?: string): Promise<{ ok: boolean; transactions: Transaction[] }> {
+  const q = query ? `?q=${encodeURIComponent(query)}` : "";
+  return apiFetch<{ ok: boolean; transactions: Transaction[] }>(
+      `/super_admin/transactions${q}`,
+      { method: "GET" }
+  );
+},
+
+
+    async superAdminBlockUser(userId: string, block: boolean): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/super_admin/users/${userId}/block`, {
+    method: "POST",
+    body: JSON.stringify({ block }),
+  });
+},
+    async superAdminDeleteUser(userId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/super_admin/users/${userId}`, { method: "DELETE" });
+},
 };

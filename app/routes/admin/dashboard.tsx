@@ -141,7 +141,7 @@ export default function AdminUsers() {
             className={`px-2 py-1 rounded-full text-xs font-semibold ${
                 user.is_verify
                     ? "bg-emerald-50 text-emerald-600"
-                    : "bg-gray-100 text-gray-500"
+                    : "bg-gray-100 text-red-500"
             }`}
         >
           {user.is_verify ? "Yes" : "No"}
@@ -214,12 +214,23 @@ function ConfirmModal({
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl p-6 w-full max-w-md">
           <h2 className="text-lg font-bold mb-3">
-            {action === "delete" ? "Delete User" : "Block User"}
+            {action === "delete"
+                ? "Delete User"
+                : user.is_blocked
+                    ? "Unblock User"
+                    : "Block User"}
           </h2>
 
           <p className="text-sm text-gray-600 mb-6">
-            Are you sure you want to {action} <strong>{user.email}</strong>?
+            Are you sure you want to{" "}
+            {action === "delete"
+                ? "delete"
+                : user.is_blocked
+                    ? "unblock"
+                    : "block"}{" "}
+            <strong>{user.email}</strong>?
           </p>
+
 
           <div className="flex justify-end gap-3">
             <button onClick={onCancel} className="px-4 py-2 border rounded-lg">

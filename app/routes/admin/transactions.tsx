@@ -109,6 +109,7 @@ export default function AdminTransactions() {
                           {new Date(tx.created_at).toLocaleTimeString("en-GB", {
                             hour: "2-digit",
                             minute: "2-digit",
+                            second: "2-digit",
                             hour12: true,
                           })}
                         </td>
