@@ -66,7 +66,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
-
+console.log(import.meta.env.VITE_BACKEND_URL);
 if (!BASE_URL) {
   // eslint-disable-next-line no-console
   console.warn("BACKEND_URL is not set.");
@@ -113,7 +113,7 @@ const hasFreshCache = (): { fresh: boolean; user: BackendUser | null } => {
 // const CLIENT_KEY = import.meta.env.VITE_CLIENT_KEY;
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const url = `${BASE_URL?.replace(/\/$/, "") ?? ""}/${path.replace(/^\//, "")}`;
-  // console.log("API FETCH URL =", url);
+ // console.log("API FETCH URL =", url);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     // "X-CLIENT-KEY": CLIENT_KEY || "",

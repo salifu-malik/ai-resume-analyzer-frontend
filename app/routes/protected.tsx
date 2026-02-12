@@ -6,7 +6,7 @@ import { useAuthStore } from "~/lib/backend";
 // If the user is not authenticated, redirect to /auth?next=<currentPathAndQuery>
 // While auth state is loading, render a minimal placeholder to avoid layout shift.
 export default function ProtectedLayout() {
-  const { isLoading, isAuthenticated, fetchMe } = useAuthStore();
+  const { isLoading, isAuthenticated, fetchMe, user } = useAuthStore();
   const location = useLocation();
   const [mounted, setMounted] = useState(false);
 
@@ -38,6 +38,14 @@ export default function ProtectedLayout() {
   if (!isAuthenticated) {
     const to = `/auth?next=${encodeURIComponent(next)}`;
     return <Navigate to={to} replace />;
+  }
+
+  if (user?.role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (user?.role === "super_admin") {
+    return <Navigate to="/super_admin" replace />;
   }
 
   // Authenticated → allow access to nested routes

@@ -51,12 +51,12 @@ export default function AdminLayout() {
                                 <span className="truncate">All Transactions</span>
                             </a>
 
-                            <a
-                                href="/super_admin/sendEmail"
-                                className="group flex items-center px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-900 border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
-                            >
-                                <span className="truncate">All User Emails</span>
-                            </a>
+                            {/*<a*/}
+                            {/*    href="/super_admin/sendEmail"*/}
+                            {/*    className="group flex items-center px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-900 border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"*/}
+                            {/*>*/}
+                            {/*    <span className="truncate">All User Emails</span>*/}
+                            {/*</a>*/}
 
                         </nav>
                     </aside>
